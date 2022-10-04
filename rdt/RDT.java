@@ -79,7 +79,6 @@ public class RDT {
 	// called by app
 	// returns total number of sent bytes  
 	public int send(byte[] data, int size) {
-		
 		//****** complete
 		RDTSegment segment = null;
 		int loaded = 0;
@@ -93,12 +92,14 @@ public class RDT {
 				// put each segment into sndBuf
 				sndBuf.putNext(segment);
 				// send using udp_send()
+				segment.checksum = segment.computeChecksum();
 				Utility.udp_send(segment, socket, dst_ip, dst_port);
 				sent += segment.length;
 				// schedule timeout for segment(s) 
 				segment.timeoutHandler = new TimeoutHandler(sndBuf, segment, socket, dst_ip, dst_port);
 				segment.timeoutHandler.run();
 				segment = null;
+				loaded = 0;
 			}
 		}
 		return sent;
@@ -111,12 +112,13 @@ public class RDT {
 	public int receive (byte[] buf, int size)
 	{
 		//*****  complete
-		RDTSegment segment = new RDTSegment();
-		for (int i=0; i<MSS; i++) {
-			segment.data[i] = buf[i];
+		RDTSegment segment = rcvBuf.getNext();
+		int count = 0;
+		while (count<segment.length && count<size) {
+			buf[count] = segment.data[count];
+			count++;
 		}
-		rcvBuf.putNext(segment);
-		return size;   // fix
+		return count;   // fix
 	}
 	
 	// called by app
@@ -166,10 +168,16 @@ class RDTBuffer {
 	
 	// return the next in-order segment
 	public RDTSegment getNext() {
-		
 		// **** Complete
-		
-		return null;  // fix 
+		RDTSegment seg = null;
+		try {
+			semMutex.acquire(); // wait for mutex 
+				seg = buf[next%size]; 
+			semMutex.release();
+		} catch(InterruptedException e) {
+			System.out.println("Buffer get(): " + e);
+		}
+		return seg;  // fix 
 	}
 	
 	// Put a segment in the *right* slot based on seg.seqNum
@@ -214,6 +222,27 @@ class ReceiverThread extends Thread {
 		//                if seg contains data, put the data in rcvBuf and do any necessary 
 		//                             stuff (e.g, send ACK)
 		//
+		while (true) {
+			try {
+				byte[] pktBuf = new byte[RDT.MSS];
+				DatagramPacket rcvPacket = new DatagramPacket(pktBuf, RDT.MSS);
+				socket.receive(rcvPacket);
+				RDTSegment segment = new RDTSegment();
+				makeSegment(segment, rcvPacket.getData());
+				if (segment.checksum != segment.computeChecksum()) {
+					System.out.println("checksum bad!");
+				}
+				if (segment.containsAck()) {
+	
+				}
+				if (segment.containsData()) {
+					rcvBuf.putNext(segment);
+				}
+			} 
+			catch (Exception IOException) {
+				System.out.println("Receive Packet Failed!");
+			}
+		}
 	}
 	
 	
