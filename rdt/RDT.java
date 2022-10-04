@@ -81,16 +81,27 @@ public class RDT {
 	public int send(byte[] data, int size) {
 		
 		//****** complete
-		
-		// divide data into segments
-		
-		// put each segment into sndBuf
-		
-		// send using udp_send()
-		
-		// schedule timeout for segment(s) 
-			
-		return size;
+		RDTSegment segment = null;
+		int loaded = 0;
+		int sent = 0;
+		for (int i=0; i<size; i++) {
+			if (segment == null) segment = new RDTSegment();
+			// divide data into segments
+			segment.data[loaded] = data[i];
+			segment.length++;
+			if (segment.length == MSS || i == size) {
+				// put each segment into sndBuf
+				sndBuf.putNext(segment);
+				// send using udp_send()
+				Utility.udp_send(segment, socket, dst_ip, dst_port);
+				sent += segment.length;
+				// schedule timeout for segment(s) 
+				segment.timeoutHandler = new TimeoutHandler(sndBuf, segment, socket, dst_ip, dst_port);
+				segment.timeoutHandler.run();
+				segment = null;
+			}
+		}
+		return sent;
 	}
 	
 	
@@ -100,8 +111,12 @@ public class RDT {
 	public int receive (byte[] buf, int size)
 	{
 		//*****  complete
-		
-		return 0;   // fix
+		RDTSegment segment = new RDTSegment();
+		for (int i=0; i<MSS; i++) {
+			segment.data[i] = buf[i];
+		}
+		rcvBuf.putNext(segment);
+		return size;   // fix
 	}
 	
 	// called by app
