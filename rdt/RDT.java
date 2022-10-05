@@ -88,7 +88,7 @@ public class RDT {
 			// divide data into segments
 			segment.data[loaded] = data[i];
 			segment.length++;
-			if (segment.length == MSS || i == size) {
+			if (segment.length == MSS-1 || i == size-1) {
 				// put each segment into sndBuf
 				sndBuf.putNext(segment);
 				// send using udp_send()
@@ -174,6 +174,7 @@ class RDTBuffer {
 		try {
 			semMutex.acquire(); // wait for mutex 
 				seg = buf[next%size]; 
+				// next++;
 			semMutex.release();
 		} catch(InterruptedException e) {
 			System.out.println("Buffer get(): " + e);
@@ -234,14 +235,14 @@ class ReceiverThread extends Thread {
 					System.out.println("checksum bad!");
 				}
 				if (segment.containsAck()) {
-	
+
 				}
 				if (segment.containsData()) {
 					rcvBuf.putNext(segment);
 				}
 			} 
 			catch (IOException e) {
-				System.out.println("Receive Packet Failed!");
+				System.out.println("receive packet failed!");
 				e.printStackTrace();
 			}
 		}
