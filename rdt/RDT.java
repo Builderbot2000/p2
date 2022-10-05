@@ -112,7 +112,8 @@ public class RDT {
 	public int receive (byte[] buf, int size)
 	{
 		//*****  complete
-		RDTSegment segment = rcvBuf.getNext();
+		RDTSegment segment = rcvBuf.getNext();; 
+		if (segment == null) return 0; 
 		int count = 0;
 		while (count<segment.length && count<size) {
 			buf[count] = segment.data[count];
@@ -239,8 +240,9 @@ class ReceiverThread extends Thread {
 					rcvBuf.putNext(segment);
 				}
 			} 
-			catch (Exception IOException) {
+			catch (IOException e) {
 				System.out.println("Receive Packet Failed!");
+				e.printStackTrace();
 			}
 		}
 	}

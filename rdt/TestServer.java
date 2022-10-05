@@ -32,9 +32,9 @@ public class TestServer {
 	     byte[] buf = new byte[500];  	     
 	     System.out.println("Server is waiting to receive ... " );
 	
-	     
 	     while (true) {
 	    	 int size = rdt.receive(buf, RDT.MSS);
+			 System.out.println("Received " + size + " bytes.");
 	    	 for (int i=0; i<size; i++)
 	    		 System.out.print(buf[i]);
 	    	 System.out.println(" ");
