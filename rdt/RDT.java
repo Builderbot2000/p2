@@ -94,6 +94,8 @@ public class RDT {
 				// send using udp_send()
 				segment.checksum = segment.computeChecksum();
 				Utility.udp_send(segment, socket, dst_ip, dst_port);
+				System.out.println("Sent!");
+				sndBuf.putNext(segment);
 				sent += segment.length;
 				// schedule timeout for segment(s) 
 				segment.timeoutHandler = new TimeoutHandler(sndBuf, segment, socket, dst_ip, dst_port);
@@ -174,7 +176,7 @@ class RDTBuffer {
 		try {
 			semMutex.acquire(); // wait for mutex 
 				seg = buf[next%size]; 
-				// next++;
+				next--;
 			semMutex.release();
 		} catch(InterruptedException e) {
 			System.out.println("Buffer get(): " + e);
@@ -193,7 +195,16 @@ class RDTBuffer {
 	public void dump() {
 		System.out.println("Dumping the receiver buffer ...");
 		// Complete, if you want to 
-		
+		for (int i=0; i<buf.length; i++) {
+			System.out.println("---");
+			if (buf[i] != null) {
+				buf[i].printHeader();
+				buf[i].printData();
+			}
+			else {
+				System.out.println("NULL");
+			}
+		}
 	}
 } // end RDTBuffer class
 
@@ -228,7 +239,9 @@ class ReceiverThread extends Thread {
 			try {
 				byte[] pktBuf = new byte[RDT.MSS];
 				DatagramPacket rcvPacket = new DatagramPacket(pktBuf, RDT.MSS);
+				System.out.println("Started listening...");
 				socket.receive(rcvPacket);
+				System.out.println("Received something!");
 				RDTSegment segment = new RDTSegment();
 				makeSegment(segment, rcvPacket.getData());
 				if (segment.checksum != segment.computeChecksum()) {
@@ -240,6 +253,7 @@ class ReceiverThread extends Thread {
 				if (segment.containsData()) {
 					rcvBuf.putNext(segment);
 				}
+				rcvBuf.dump();
 			} 
 			catch (IOException e) {
 				System.out.println("receive packet failed!");
