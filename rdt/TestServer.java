@@ -35,9 +35,10 @@ public class TestServer {
 		 while (true) {
 	    	 int size = rdt.receive(buf, RDT.MSS);
 			 // System.out.println("Received " + size + " bytes.");
+			 /*
 	    	 for (int i=0; i<size; i++) {
 				System.out.print(buf[i]);
-			}
+			 }*/
 	    	 // System.out.println(" ");
 	    	 System.out.flush();
 	     } 

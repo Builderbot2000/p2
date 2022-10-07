@@ -47,21 +47,25 @@ public class RDTSegment {
 	
 	public boolean containsAck() {
 		// complete
-		return true;
+		return flags == 1;
 	}
 	
 	public boolean containsData() {
 		// complete
-		return true;
+		return length > 0;
 	}
 
 	public int computeChecksum() {
 		// complete
-		return 0;
+		int i, sum = 0;
+		for (i = 0; i < length; i++) sum += Math.abs(data[i]); // Compute sum of data
+		sum = sum & ((1 << 8) - 1); // Get 8 least significant bits of sum
+		System.out.println("checksum computed: " + sum);
+		return sum;
 	}
 	public boolean isValid() {
 		// complete
-		return true;
+		return checksum == computeChecksum();
 	}
 	
 	// converts this seg to a series of bytes
@@ -85,6 +89,7 @@ public class RDTSegment {
 		System.out.println("checksum: " + checksum);
 		System.out.println("rcvWin: " + rcvWin);
 		System.out.println("length: " + length);
+		System.out.println("ackReceived: " + ackReceived);
 	}
 	public void printData() {
 		System.out.println("Data ... ");

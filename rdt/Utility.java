@@ -18,6 +18,7 @@ public class Utility {
 			
 		double d = RDT.random.nextDouble();
 		if ( d < RDT.lossRate) { // simulate network loss
+			System.out.println("d: " + d + " < " + RDT.lossRate);
 			System.out.println(System.currentTimeMillis()+":udp_send: Lost Segment: seqNum=" + 
 					       seg.seqNum + "  ackNum=" + seg.ackNum + " ***");
 			System.out.flush();
@@ -29,7 +30,7 @@ public class Utility {
 		seg.makePayload(payload);
 	
 		// corrupt some bits
-		
+
 		// send over udp
 		// simulate random network delay
 		int delay = RDT.random.nextInt(MAX_NETWORK_DELAY);

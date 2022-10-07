@@ -33,7 +33,12 @@ class TimeoutHandler extends TimerTask {
 		// complete 
 		switch(RDT.protocol){
 			case RDT.GBN:
-				
+				if (seg.ackReceived != true) {
+					System.out.println("Retransmitting packet...");
+					Utility.udp_send(seg, socket, ip, port);
+					seg.timeoutHandler = new TimeoutHandler(sndBuf, seg, socket, ip, port);
+					RDT.scheduleTimeout(seg);
+				}
 				break;
 			case RDT.SR:
 				
