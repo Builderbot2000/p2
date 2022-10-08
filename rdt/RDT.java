@@ -266,30 +266,58 @@ class ReceiverThread extends Thread {
 				RDTSegment segment = new RDTSegment();
 				makeSegment(segment, rcvPacket.getData());
 				segment.dump();
-				if (!segment.isValid()) {
-					System.out.println("checksum bad!");
-				}
 				if (segment.containsAck()) {
 					System.out.println("ACK received! seq: " + segment.ackNum);
-					for (int i=0; i<sndBuf.size; i++) {
-						if (segment.ackNum == sndBuf.buf[i].seqNum) {
-							sndBuf.buf[i].ackReceived = true;
-							sndBuf.buf[i] = null;
-							sndBuf.semEmpty.release(); // increase #of empty slots
-							System.out.println("cleared slot: " + i);
-						}
+					switch (RDT.protocol) {
+						case RDT.GBN:
+							for (int i=0; i<sndBuf.size; i++) {
+								if (segment.ackNum >= sndBuf.buf[i].seqNum) {
+									sndBuf.buf[i].ackReceived = true;
+									sndBuf.buf[i] = null;
+									sndBuf.semEmpty.release(); // increase #of empty slots
+									System.out.println("cleared slot: " + i);
+								}
+							}
+						case RDT.SR:
+							for (int i=0; i<sndBuf.size; i++) {
+								if (segment.ackNum == sndBuf.buf[i].seqNum) {
+									sndBuf.buf[i].ackReceived = true;
+									sndBuf.buf[i] = null;
+									sndBuf.semEmpty.release(); // increase #of empty slots
+									System.out.println("cleared slot: " + i);
+								}
+							}
 					}
 					sndBuf.dump();
 				}
-				if (segment.containsData()) {
-					rcvBuf.putNext(segment);
-					RDTSegment ack = new RDTSegment();
-					ack.ackNum = segment.seqNum;
-					ack.flags = 1;
-					Utility.udp_send(ack, socket, dst_ip, dst_port);
-					// ack.dump();
-					System.out.println("ACK sent!");
-					// rcvBuf.dump();
+				if (segment.containsData() && segment.isValid()) {
+					switch (RDT.protocol) {
+						case RDT.GBN:
+							rcvBuf.putNext(segment);
+							RDTSegment ackSR = new RDTSegment();
+							ackSR.ackNum = segment.seqNum;
+							ackSR.flags = 1;
+							if (segment.seqNum == rcvBuf.base + 1) rcvBuf.base++;
+							ackSR.seqNum = rcvBuf.base;
+							Utility.udp_send(ackSR, socket, dst_ip, dst_port);
+							// ackSR.dump();
+							System.out.println("ACK sent!");
+							// rcvBuf.dump();
+							break;
+						case RDT.SR:
+							rcvBuf.putNext(segment);
+							RDTSegment ackGBN = new RDTSegment();
+							ackGBN.ackNum = segment.seqNum;
+							ackGBN.flags = 1;
+							ackGBN.seqNum = segment.seqNum;
+							Utility.udp_send(ackGBN, socket, dst_ip, dst_port);
+							// ackGBN.dump();
+							System.out.println("ACK sent!");
+							// rcvBuf.dump();
+							break;
+						default:
+							System.out.println("Error in ReceiverThread:run(): unknown protocol");
+					}
 				}
 			} 
 			catch (IOException e) {
