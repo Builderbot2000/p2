@@ -61,7 +61,7 @@ public class RDTSegment {
 		int i, sum = 0;
 		for (i = 0; i < length; i++) sum += Math.abs(data[i]); // Compute sum of data
 		sum = sum & ((1 << 8) - 1); // Get 8 least significant bits of sum
-		System.out.println("checksum computed: " + sum);
+		// System.out.println("checksum computed: " + sum);
 		return sum;
 	}
 	public boolean isValid() {

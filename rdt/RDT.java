@@ -1,4 +1,4 @@
-
+/* Kevin Tang (kta76) */
 /**
  * @author mohamed
  *
@@ -80,8 +80,8 @@ public class RDT {
 	// returns total number of sent bytes  
 	public int send(byte[] data, int size) {
 		//****** complete
-		System.out.println("Send requested. data: ");
-		for (byte b : data) System.out.print(b);
+		// System.out.println("Send requested. data: ");
+		// for (byte b : data) System.out.print(b);
 		RDTSegment segment = null;
 		int loaded = 0;
 		int sent = 0;
@@ -89,32 +89,32 @@ public class RDT {
 			if (segment == null) segment = new RDTSegment();
 			// divide data into segments
 			segment.data[loaded] = data[i];
-			System.out.println(loaded + "|loaded: " + segment.data[loaded]);
+			// System.out.println(loaded + "|loaded: " + segment.data[loaded]);
 			segment.length++;
 			loaded++;
 			if (segment.length == MSS-1 || i == size-1) {
 				// put each segment into sndBuf
-				segment.seqNum = sndBuf.next;
-				System.out.println("Trying to place in sndbuf...");
+				segment.seqNum = sndBuf.nextSeq;
+				// System.out.println("Trying to place in sndbuf...");
 				sndBuf.putNext(segment);
-				System.out.println("Placed in sndbuf.");
 				// send using udp_send()
 				segment.checksum = segment.computeChecksum();
 				// segment.dump();
 				Utility.udp_send(segment, socket, dst_ip, dst_port);
-				System.out.println("Sent.");
+				// System.out.println("Sent.");
 				sent += segment.length;
 				// schedule timeout for segment(s) 
-				System.out.println("Scheduling timout...");
+				// System.out.println("Scheduling timeout...");
 				segment.timeoutHandler = new TimeoutHandler(sndBuf, segment, socket, dst_ip, dst_port);
 				Timer timeoutTimer = new Timer();
 				timeoutTimer.schedule(segment.timeoutHandler, RTO);
-				// reset segment husk
+				// reset segment husk and update
+				sndBuf.nextSeq++;
 				segment = null;
 				loaded = 0;
 			}
 		}
-		System.out.println("Send process end.");
+		// System.out.println("Send process end.");
 		// sndBuf.dump();
 		return sent;
 	}
@@ -122,8 +122,13 @@ public class RDT {
 	// retransmit an existing segment without reconstructing the segment
 	public static void scheduleTimeout(RDTSegment segment) {
 		Timer timeoutTimer = new Timer();
-		timeoutTimer.schedule(segment.timeoutHandler, RTO);
-	}
+		try {
+			timeoutTimer.schedule(segment.timeoutHandler, RTO);
+		}
+		catch (IllegalStateException e) {
+			// System.out.println("Timeout scheduling blocked.");
+		}
+ 	}
 	
 	// called by app
 	// receive one segment at a time
@@ -155,6 +160,7 @@ class RDTBuffer {
 	public int size;	
 	public int base;
 	public int next;
+	public int nextSeq;
 	public Semaphore semMutex; // for mutual execlusion
 	public Semaphore semFull; // #of full slots
 	public Semaphore semEmpty; // #of Empty slots
@@ -164,7 +170,7 @@ class RDTBuffer {
 		for (int i=0; i<bufSize; i++)
 			buf[i] = null;
 		size = bufSize;
-		base = next = 0;
+		base = next = nextSeq = 0;
 		semMutex = new Semaphore(1, true);
 		semFull =  new Semaphore(0, true);
 		semEmpty = new Semaphore(bufSize, true);
@@ -175,15 +181,17 @@ class RDTBuffer {
 	// Put a segment in the next available slot in the buffer
 	public void putNext(RDTSegment seg) {		
 		try {
-			System.out.println("Trying to acquire empty slot.");
-			// this.dump();
+			// System.out.println("Trying to acquire empty slot.");
 			semEmpty.acquire(); // wait for an empty slot 
-			System.out.println("Empty slot acquired.");
+			// System.out.println("Empty slot acquired.");
 			semMutex.acquire(); // wait for mutex 
 				buf[next%size] = seg;
+				// System.out.println("next: " + next);
+				// System.out.println("Placed " + seg.seqNum + " in sndbuf["+next%size+"].");
 				next++;  
 			semMutex.release();
 			semFull.release(); // increase #of full slots
+			// this.dump();
 		} catch(InterruptedException e) {
 			System.out.println("Buffer put(): " + e);
 		}
@@ -210,6 +218,18 @@ class RDTBuffer {
 		// ***** compelte
 
 	}
+
+	public void pack(int index) {
+		// System.out.println("Before pack: ");
+		// dump();
+		for (int j=index; j<this.size-1; j++) {
+			this.buf[j] = this.buf[j+1];
+		}
+		this.buf[this.size-1] = null;
+		next--;
+		// System.out.println("After pack: ");
+		// dump();
+	}
 	
 	// for debugging
 	public void dump() {
@@ -217,15 +237,15 @@ class RDTBuffer {
 		// Complete, if you want to 
 		for (int i=0; i<buf.length; i++) {
 			if (buf[i] != null) {
-				System.out.println("|" + buf[i].seqNum + "|");
+				System.out.print("|" + buf[i].seqNum + "|");
 				// buf[i].printHeader();
 				// buf[i].printData();
 			}
 			else {
-				System.out.println("|NULL|");
+				System.out.print("|NULL|");
 			}
 		}
-		System.out.println("--- end buffer ---");
+		System.out.println("\n--- end buffer ---");
 	}
 } // end RDTBuffer class
 
@@ -260,50 +280,56 @@ class ReceiverThread extends Thread {
 			try {
 				byte[] pktBuf = new byte[RDT.MSS];
 				DatagramPacket rcvPacket = new DatagramPacket(pktBuf, RDT.MSS);
-				System.out.println("started listening...");
+				// System.out.println("started listening...");
 				socket.receive(rcvPacket);
-				System.out.println("received something!");
+				// System.out.println("received something!");
 				RDTSegment segment = new RDTSegment();
 				makeSegment(segment, rcvPacket.getData());
-				segment.dump();
+				// segment.dump();
 				if (segment.containsAck()) {
-					System.out.println("ACK received! seq: " + segment.ackNum);
+					// System.out.println("ACK received! seq: " + segment.ackNum);
 					switch (RDT.protocol) {
 						case RDT.GBN:
 							for (int i=0; i<sndBuf.size; i++) {
+								if (sndBuf.buf[i] == null) continue;
 								if (segment.ackNum >= sndBuf.buf[i].seqNum) {
 									sndBuf.buf[i].ackReceived = true;
 									sndBuf.buf[i] = null;
+									sndBuf.pack(i);
 									sndBuf.semEmpty.release(); // increase #of empty slots
-									System.out.println("cleared slot: " + i);
+									// System.out.println("cleared slot: " + i);
+									// sndBuf.dump();
 								}
 							}
 							break;
 						case RDT.SR:
 							for (int i=0; i<sndBuf.size; i++) {
+								if (sndBuf.buf[i] == null) continue;
 								if (segment.ackNum == sndBuf.buf[i].seqNum) {
 									sndBuf.buf[i].ackReceived = true;
 									sndBuf.buf[i] = null;
+									sndBuf.pack(i);
 									sndBuf.semEmpty.release(); // increase #of empty slots
-									System.out.println("cleared slot: " + i);
+									// System.out.println("cleared slot: " + i);
+									// sndBuf.dump();
 								}
 							}
 							break;
 					}
-					sndBuf.dump();
+					// sndBuf.dump();
 				}
 				if (segment.containsData() && segment.isValid()) {
 					switch (RDT.protocol) {
 						case RDT.GBN:
 							rcvBuf.putNext(segment);
 							RDTSegment ackSR = new RDTSegment();
-							ackSR.ackNum = segment.seqNum;
+							ackSR.ackNum = rcvBuf.base;
 							ackSR.flags = 1;
 							if (segment.seqNum == rcvBuf.base + 1) rcvBuf.base++;
 							ackSR.seqNum = rcvBuf.base;
 							Utility.udp_send(ackSR, socket, dst_ip, dst_port);
 							// ackSR.dump();
-							System.out.println("ACK sent!");
+							// System.out.println("ACK sent!");
 							// rcvBuf.dump();
 							break;
 						case RDT.SR:
@@ -314,13 +340,14 @@ class ReceiverThread extends Thread {
 							ackGBN.seqNum = segment.seqNum;
 							Utility.udp_send(ackGBN, socket, dst_ip, dst_port);
 							// ackGBN.dump();
-							System.out.println("ACK sent!");
+							// System.out.println("ACK sent!");
 							// rcvBuf.dump();
 							break;
 						default:
 							System.out.println("Error in ReceiverThread:run(): unknown protocol");
 					}
 				}
+				// sndBuf.dump();
 			} 
 			catch (IOException e) {
 				System.out.println("receive packet failed!");
@@ -332,7 +359,7 @@ class ReceiverThread extends Thread {
 	
 //	 create a segment from received bytes 
 	void makeSegment(RDTSegment seg, byte[] payload) {
-	
+
 		seg.seqNum = Utility.byteToInt(payload, RDTSegment.SEQ_NUM_OFFSET);
 		seg.ackNum = Utility.byteToInt(payload, RDTSegment.ACK_NUM_OFFSET);
 		seg.flags  = Utility.byteToInt(payload, RDTSegment.FLAGS_OFFSET);
