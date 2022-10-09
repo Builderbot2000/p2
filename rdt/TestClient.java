@@ -1,3 +1,4 @@
+/* Kevin Tang (kta76) */
 /**
  * @author mohamed
  *
@@ -30,30 +31,31 @@ public class TestClient {
 	     int dst_port = Integer.parseInt(args[1]);
 	     int local_port = Integer.parseInt(args[2]);
 	     	      
-	     RDT rdt = new RDT(hostname, dst_port, local_port, 1, 3);
-	     RDT.setLossRate(0.4);
+	     RDT rdt = new RDT(hostname, dst_port, local_port, 1, 1);
+	     RDT.setLossRate(0.8);
 	  
+		 int msgSize = 45;
 	     byte[] buf = new byte[RDT.MSS];
-	     byte[] data = new byte[10];
-	     for (int i=0; i<10; i++)
+	     byte[] data = new byte[msgSize];
+	     for (int i=0; i<msgSize; i++)
 	    	 data[i] = 0;
-	     rdt.send(data, 10);
+	     rdt.send(data, msgSize);
 		 
-	     for (int i=0; i<10; i++)
+	     for (int i=0; i<msgSize; i++)
 	    	 data[i] = 1;
-	     rdt.send(data, 10);
+	     rdt.send(data, msgSize);
 	     
-	     for (int i=0; i<10; i++)
+	     for (int i=0; i<msgSize; i++)
 	    	 data[i] = 2;
-	     rdt.send(data, 10);
+	     rdt.send(data, msgSize);
 	     
-	     for (int i=0; i<10; i++)
+	     for (int i=0; i<msgSize; i++)
 	    	 data[i] = 3;
-	     rdt.send(data, 10);
+	     rdt.send(data, msgSize);
 
-	     for (int i=0; i<10; i++)
+	     for (int i=0; i<msgSize; i++)
 	    	 data[i] = 4;
-	     rdt.send(data, 10);
+	     rdt.send(data, msgSize);
 	 
 	     
 	     System.out.println(System.currentTimeMillis() + ":Client has sent all data " );

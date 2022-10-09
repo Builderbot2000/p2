@@ -278,6 +278,7 @@ class ReceiverThread extends Thread {
 									System.out.println("cleared slot: " + i);
 								}
 							}
+							break;
 						case RDT.SR:
 							for (int i=0; i<sndBuf.size; i++) {
 								if (segment.ackNum == sndBuf.buf[i].seqNum) {
@@ -287,6 +288,7 @@ class ReceiverThread extends Thread {
 									System.out.println("cleared slot: " + i);
 								}
 							}
+							break;
 					}
 					sndBuf.dump();
 				}
